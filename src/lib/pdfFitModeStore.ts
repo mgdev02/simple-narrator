@@ -78,7 +78,7 @@ export function getPdfFitModeSnapshot(): PdfViewerFitMode {
 export function togglePdfFitMode(): void {
   fitMode = fitMode === "width" ? "page" : "width";
   devDiag("fit", "toggle", { fitMode });
-  suppressScrollSpy(2000, "fit-toggle");
+  suppressScrollSpy(900, "fit-toggle");
   applyPdfVisualScaleToDom();
   startTransition(() => notify());
 }
@@ -88,7 +88,7 @@ export function setPdfFitMode(mode: PdfViewerFitMode): void {
     return;
   }
   fitMode = mode;
-  suppressScrollSpy(2000, "fit-set");
+  suppressScrollSpy(900, "fit-set");
   applyPdfVisualScaleToDom();
   startTransition(() => notify());
 }

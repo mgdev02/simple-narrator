@@ -385,7 +385,10 @@ export function usePodcastPlayer() {
   /** Solo sincroniza página al hacer scroll (sin resetear prep ni mensajes). */
   const syncViewPage = useCallback(
     (page: number) => {
-      if (!document || playingRef.current) {
+      if (!document) {
+        return;
+      }
+      if (playingRef.current && !pausedRef.current) {
         return;
       }
       if (isScrollSpySuppressed() || isScrollSpyBlockedForLayout()) {

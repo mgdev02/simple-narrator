@@ -14,11 +14,14 @@ import {
   notifyUserScroll,
 } from "@/lib/scrollSpySuppress";
 import type { NarrationSyncController } from "@/lib/narrationSync";
-import { setPdfViewerViewportMetrics } from "@/lib/pdfFitModeStore";
+import {
+  setPdfViewerViewportMetrics,
+  subscribePdfFitMode,
+} from "@/lib/pdfFitModeStore";
 import { PdfPageSlot } from "./PdfPageSlot";
 
 const WIDTH_CHANGE_EPSILON = 8;
-const SCROLL_PAGE_DEBOUNCE_MS = 120;
+const PROGRAMMATIC_SCROLL_GUARD_MS = 280;
 
 interface PdfPageViewerProps {
   pdfDoc: PDFDocumentProxy | null;
@@ -43,9 +46,10 @@ export const PdfPageViewer = memo(function PdfPageViewer({
   const pageElementsRef = useRef<Map<number, HTMLElement>>(new Map());
   const programmaticScrollRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
-  const scrollDebounceRef = useRef<number | null>(null);
   const onPageVisibleRef = useRef(onPageVisible);
+  const visiblePageRef = useRef(visiblePage);
   onPageVisibleRef.current = onPageVisible;
+  visiblePageRef.current = visiblePage;
 
   const [viewportWidth, setViewportWidth] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -175,24 +179,31 @@ export const PdfPageViewer = memo(function PdfPageViewer({
       return;
     }
 
-    const centerY = root.scrollTop + root.clientHeight * 0.4;
-    let bestPage = visiblePage;
+    const rootRect = root.getBoundingClientRect();
+    const probeY = rootRect.top + rootRect.height * 0.38;
+
+    let bestPage = -1;
     let bestDistance = Number.POSITIVE_INFINITY;
 
     for (const [page, el] of pageElementsRef.current.entries()) {
-      const top = el.offsetTop;
-      const mid = top + el.offsetHeight / 2;
-      const distance = Math.abs(mid - centerY);
+      const rect = el.getBoundingClientRect();
+      if (rect.height <= 0) {
+        continue;
+      }
+      const mid = rect.top + rect.height / 2;
+      const distance = Math.abs(mid - probeY);
       if (distance < bestDistance) {
         bestDistance = distance;
         bestPage = page;
       }
     }
 
-    if (bestPage !== visiblePage) {
-      onPageVisibleRef.current?.(bestPage);
+    if (bestPage < 1 || bestPage === visiblePageRef.current) {
+      return;
     }
-  }, [visiblePage]);
+
+    onPageVisibleRef.current?.(bestPage);
+  }, []);
 
   useEffect(() => {
     const root = scrollRef.current;
@@ -200,17 +211,11 @@ export const PdfPageViewer = memo(function PdfPageViewer({
 
     const onScroll = () => {
       if (scrollRafRef.current !== null) {
-        cancelAnimationFrame(scrollRafRef.current);
+        return;
       }
       scrollRafRef.current = requestAnimationFrame(() => {
         scrollRafRef.current = null;
-        if (scrollDebounceRef.current !== null) {
-          window.clearTimeout(scrollDebounceRef.current);
-        }
-        scrollDebounceRef.current = window.setTimeout(() => {
-          scrollDebounceRef.current = null;
-          detectPageFromScroll();
-        }, SCROLL_PAGE_DEBOUNCE_MS);
+        detectPageFromScroll();
       });
     };
 
@@ -238,11 +243,40 @@ export const PdfPageViewer = memo(function PdfPageViewer({
       if (scrollRafRef.current !== null) {
         cancelAnimationFrame(scrollRafRef.current);
       }
-      if (scrollDebounceRef.current !== null) {
-        window.clearTimeout(scrollDebounceRef.current);
-      }
     };
   }, [detectPageFromScroll, pageCount]);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      detectPageFromScroll();
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [detectPageFromScroll, scrollRoot]);
+
+  useEffect(() => {
+    return subscribePdfFitMode(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          detectPageFromScroll();
+        });
+      });
+    });
+  }, [detectPageFromScroll]);
+
+  useEffect(() => {
+    if (pageCount === 0 || viewportWidth <= 0) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      detectPageFromScroll();
+    });
+  }, [pageCount, viewportWidth, detectPageFromScroll]);
 
   useEffect(() => {
     const el = pageElementsRef.current.get(pageNumber);
@@ -255,10 +289,11 @@ export const PdfPageViewer = memo(function PdfPageViewer({
 
     const t = window.setTimeout(() => {
       programmaticScrollRef.current = false;
-    }, 200);
+      detectPageFromScroll();
+    }, PROGRAMMATIC_SCROLL_GUARD_MS);
 
     return () => window.clearTimeout(t);
-  }, [pageNumber]);
+  }, [pageNumber, detectPageFromScroll]);
 
   if (!pdfDoc || pageCount === 0) {
     return (
