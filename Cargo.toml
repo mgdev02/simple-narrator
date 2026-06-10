@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "src-tauri",
+    "crates/narration-sync",
+    "crates/narration-sync-wasm",
+]
+resolver = "2"
+
+[profile.release]
+opt-level = "s"

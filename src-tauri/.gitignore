@@ -1,0 +1,16 @@
+# Binarios Piper (instalar con scripts/setup-local-ai.sh)
+bin/piper
+bin/piper-*
+bin/piper_phonemize
+
+# Librerías y datos de Piper
+bin/lib/
+bin/espeak-ng-data/
+
+# Modelos de voz (archivos grandes; no versionar)
+models/piper/*.onnx
+models/piper/*.onnx.json
+models/piper/*.onnx.patched
+
+.venv-translate/
+.venv-piper/

@@ -1,0 +1,285 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --animate-header-load-slide: header-load-slide 1.1s ease-in-out infinite;
+
+  @keyframes header-load-slide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.75 0.12 250);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  a[href],
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .panel-card {
+    @apply rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm;
+  }
+
+  .mac-window-titlebar {
+    height: 2.25rem;
+    padding-top: 0.5rem;
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  .tauri-drag-region {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  .tauri-no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  /* Zona interactiva: anula arrastre nativo de Tauri en todo el panel y sus hijos */
+  .tauri-interactive-zone,
+  .tauri-interactive-zone * {
+    -webkit-app-region: no-drag !important;
+    app-region: no-drag !important;
+  }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.pdf-viewer-chrome {
+  --subtitle-gutter: 0px;
+  --pdf-visual-scale: 1;
+  --pdf-page-width: 0px;
+  --pdf-page-height: 0px;
+}
+
+.pdf-viewer-chrome[data-subtitles-visible="true"] .pdf-viewer-inner:not(.pdf-viewer-inner-continuous) {
+  justify-content: flex-start;
+}
+
+.pdf-viewer-inner-continuous {
+  min-height: min-content;
+}
+
+/* Scroll continuo: escala vía CSS var del chrome (subtítulos sin re-render React). */
+.pdf-page-host-continuous {
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: auto calc(var(--pdf-page-height, 800px) * var(--pdf-visual-scale, 1));
+  height: calc(var(--pdf-page-height, 0px) * var(--pdf-visual-scale, 1));
+  max-width: 100%;
+  width: calc(var(--pdf-page-width, 0px) * var(--pdf-visual-scale, 1));
+}
+
+.pdf-page-scaled-continuous {
+  height: var(--pdf-page-height, auto);
+  width: var(--pdf-page-width, 100%);
+}
+
+.pdf-viewer-surface {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.pdf-page-host {
+  height: calc(var(--pdf-page-height) * var(--pdf-visual-scale));
+  max-width: 100%;
+  transition:
+    width 150ms ease-out,
+    height 150ms ease-out;
+  width: calc(var(--pdf-page-width) * var(--pdf-visual-scale));
+}
+
+.pdf-page-host.pdf-page-host-continuous {
+  transition: none;
+}
+
+.pdf-page-scaled {
+  transform: scale(var(--pdf-visual-scale));
+  transform-origin: top left;
+  transition: transform 150ms ease-out;
+}
+
+.pdf-page-scaled-continuous {
+  transition: none;
+}
+
+.subtitle-panel {
+  transition:
+    transform 150ms ease-out,
+    opacity 150ms ease-out;
+}
+
+.subtitle-panel-visible {
+  transform: translateX(0);
+}
+
+.subtitle-panel-hidden {
+  transform: translateX(100%);
+}
+
+.pdf-text-layer {
+  line-height: 1;
+  transform-origin: 0 0;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
+.pdf-text-layer span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0 0;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
+/* Resaltado narración: glow mínimo celeste + flecha sobre la palabra. */
+.pdf-text-layer span.pdf-text-highlight-active {
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pdf-text-layer span.pdf-text-highlight-active::before {
+  content: "";
+  position: absolute;
+  inset: -11px -10px 4px -10px;
+  z-index: -1;
+  border-radius: 4px;
+  pointer-events: none;
+  background: oklch(0.78 0.1 250 / 0.13);
+  box-shadow: 0 0 16px oklch(0.75 0.12 250 / 0.26);
+  transform: translateY(-10px);
+}
+
+.pdf-word-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  pointer-events: none;
+  color: oklch(0.72 0.14 250);
+  opacity: 0;
+  transform: translate(-50%, -100%);
+  transition: opacity 0.08s ease-out;
+  filter: drop-shadow(0 2px 12px oklch(0.75 0.12 250 / 0.65));
+}
+
+.pdf-word-indicator svg {
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+.pdf-word-indicator-visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-word-indicator {
+    transition: none;
+  }
+}
+
+.subtitle-text-root:not(:empty) + .subtitle-placeholder {
+  display: none;
+}
+
+.subtitle-word {
+  color: oklch(0.708 0 0);
+  transition:
+    color 0.12s ease,
+    font-weight 0.12s ease;
+}
+
+.subtitle-word-spoken {
+  color: oklch(0.92 0.04 250);
+  font-weight: 500;
+}
+
+.subtitle-word-active {
+  color: oklch(0.98 0.06 250);
+  font-weight: 600;
+  text-shadow: 0 0 12px oklch(0.75 0.12 250 / 0.35);
+}
