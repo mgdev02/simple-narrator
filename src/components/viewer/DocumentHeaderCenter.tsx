@@ -14,6 +14,7 @@ interface DocumentHeaderCenterProps {
   onPause: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
+  isPdfLoading?: boolean;
 }
 
 export const DocumentHeaderCenter = memo(function DocumentHeaderCenter({
@@ -26,10 +27,11 @@ export const DocumentHeaderCenter = memo(function DocumentHeaderCenter({
   onPause,
   onPrevPage,
   onNextPage,
+  isPdfLoading = false,
 }: DocumentHeaderCenterProps) {
   return (
     <div className="tauri-interactive-zone flex min-w-0 items-center justify-center gap-3">
-      <PrepProgressIndicator status={status} />
+      <PrepProgressIndicator status={status} isPdfLoading={isPdfLoading} />
       <HeaderPlayControls
         currentPage={currentPage}
         pageCount={pageCount}

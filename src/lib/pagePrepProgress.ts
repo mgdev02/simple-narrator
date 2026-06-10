@@ -1,7 +1,13 @@
 import type { PagePrepSnapshot } from "@/lib/playbackEngine";
 import type { PlayerStatus } from "@/types";
 
-export function pagePrepPercent(snapshot: PagePrepSnapshot): number {
+export function pagePrepPercent(
+  snapshot: PagePrepSnapshot,
+  isPdfLoading = false,
+): number {
+  if (isPdfLoading && snapshot.status !== "ready") {
+    return 5;
+  }
   if (snapshot.status === "idle" || snapshot.status === "error") {
     return 0;
   }
@@ -15,7 +21,13 @@ export function pagePrepPercent(snapshot: PagePrepSnapshot): number {
   return Math.min(100, Math.round(8 + ratio * 92));
 }
 
-export function isPagePrepActive(snapshot: PagePrepSnapshot): boolean {
+export function isPagePrepActive(
+  snapshot: PagePrepSnapshot,
+  isPdfLoading = false,
+): boolean {
+  if (isPdfLoading && snapshot.status !== "ready") {
+    return true;
+  }
   if (snapshot.status === "analyzing") {
     return true;
   }
@@ -30,9 +42,13 @@ export function isPagePrepActive(snapshot: PagePrepSnapshot): boolean {
 export function shouldShowPrepIndicator(
   snapshot: PagePrepSnapshot,
   playerStatus: PlayerStatus,
+  isPdfLoading = false,
 ): boolean {
   if (playerStatus === "playing" || playerStatus === "preparing") {
     return false;
+  }
+  if (isPdfLoading && snapshot.status !== "ready") {
+    return true;
   }
   if (
     snapshot.status === "idle" ||

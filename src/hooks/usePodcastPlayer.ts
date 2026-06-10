@@ -26,7 +26,7 @@ import {
 } from "@/lib/tauri";
 import { NarrationSyncController } from "@/lib/narrationSync";
 import { WavAudioPlayer } from "@/lib/wavAudioPlayer";
-import { defaultVoiceForLanguage } from "@/lib/voices";
+import { voiceForLanguage } from "@/lib/voicePreferenceStore";
 import type {
   AppLanguage,
   ChunkAudioBundle,
@@ -65,6 +65,7 @@ export function usePodcastPlayer() {
   const [isPdfViewerLoading, setIsPdfViewerLoading] = useState(false);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
   const [listenLanguage, setListenLanguage] = useState<AppLanguage>("es");
+  const [voicePreferenceVersion, setVoicePreferenceVersion] = useState(0);
   const [pagePrepStatus, setPagePrepStatus] = useState<PagePrepStatus>("idle");
   const pagePrepStatusRef = useRef<PagePrepStatus>("idle");
   pagePrepStatusRef.current = pagePrepStatus;
@@ -99,7 +100,7 @@ export function usePodcastPlayer() {
       const resolved = doc ?? documentRef.current;
       if (!resolved) return null;
       const lang = listenLanguageRef.current;
-      const voice = defaultVoiceForLanguage(lang);
+      const voice = voiceForLanguage(lang);
       return {
         docPath: resolved.path,
         page,
@@ -450,7 +451,7 @@ export function usePodcastPlayer() {
     const engine = engineRef.current;
     const player = audioPlayerRef.current;
 
-    const sessionVoice = defaultVoiceForLanguage(listenLanguage);
+    const sessionVoice = voiceForLanguage(listenLanguage);
     const startPage = currentPageRef.current;
     const lastPage = doc.pageCount > 0 ? doc.pageCount : startPage;
 
@@ -684,6 +685,19 @@ export function usePodcastPlayer() {
     [stopPlayback],
   );
 
+  const handleVoicePreferenceChange = useCallback(() => {
+    stopPlayback();
+    engineRef.current.cancelAll();
+    subtitleCacheRef.current.clear();
+    resetPagePrepSnapshot();
+    setPagePrepStatus("analyzing");
+    syncControllerRef.current.endChunk();
+    setVoicePreferenceVersion((version) => version + 1);
+    setStatus("ready");
+    setStatusMessage("Cambiando voz de narración…");
+    setError(null);
+  }, [stopPlayback]);
+
   const handleSubtitleVisibilityChange = useCallback(
     (enabled: boolean) => {
       if (!playingRef.current && activeChunkIndexRef.current < 0) {
@@ -747,9 +761,19 @@ export function usePodcastPlayer() {
 
   useEffect(() => {
     const params = buildPrepParams(currentPage);
-    if (!params || !document?.path || isPdfViewerLoading) {
+    if (!params || !document?.path) {
       resetPagePrepSnapshot();
       setPagePrepStatus("idle");
+      return;
+    }
+
+    if (isPdfViewerLoading) {
+      setPagePrepStatus("analyzing");
+      setPagePrepSnapshot({
+        status: "analyzing",
+        totalChunks: 0,
+        chunksPrepared: 0,
+      });
       return;
     }
 
@@ -889,7 +913,13 @@ export function usePodcastPlayer() {
       unsubscribe?.();
       devDiag("prep", "effect cleanup", { page: params.page });
     };
-  }, [currentPage, document?.path, isPdfViewerLoading, listenLanguage]);
+  }, [
+    currentPage,
+    document?.path,
+    isPdfViewerLoading,
+    listenLanguage,
+    voicePreferenceVersion,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -926,6 +956,7 @@ export function usePodcastPlayer() {
     handleDocumentLoadError,
     listenLanguage,
     setListenLanguage: handleListenLanguageChange,
+    handleVoicePreferenceChange,
     showOppositeSubtitlesRef,
     handleSubtitleVisibilityChange,
     closeDocument,

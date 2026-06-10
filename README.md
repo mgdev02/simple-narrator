@@ -7,7 +7,8 @@ Todo el procesamiento de voz y traducción ocurre en tu máquina; no se envían 
 ## Características
 
 - **Visor PDF continuo** con [PDF.js](https://mozilla.github.io/pdf.js/): scroll por todas las páginas, miniaturas laterales y barra de progreso al abrir archivos grandes.
-- **Narración local** con Piper (voces `es_ES-sharvard-medium` y `en_US-lessac-medium`).
+- **Narración local** con Piper: varias voces ES/EN en el catálogo y **descarga desde la app** (Hugging Face) sin salir del programa.
+- **Selector de voz** por idioma (español e inglés por separado), con preescucha antes de usar.
 - **Detección de idioma** del PDF (`whatlang`) y selector de idioma del audio (español / inglés).
 - **Traducción offline** en↔es con [Argos Translate](https://github.com/argosopentech/argos-translate) para subtítulos en el idioma opuesto al audio.
 - **Sincronización palabra a palabra** en el PDF (resaltado + indicador) y en la banda de subtítulos, vía alineación fonema y módulo Rust/WASM `narration-sync`.
@@ -47,7 +48,9 @@ npm install
 npm run tauri dev
 ```
 
-El script `setup-local-ai.sh` descarga ~200 MB (binarios Piper, librerías, modelos ONNX y paquetes de traducción). Los archivos grandes **no** se versionan en git; cada desarrollador debe ejecutar el script.
+El script `setup-local-ai.sh` descarga ~200 MB (binarios Piper, librerías, dos modelos por defecto y paquetes de traducción). Instala además el venv `piper-tts`, necesario para **parchear** modelos ONNX (sincronización palabra a palabra). Voces adicionales del catálogo se pueden descargar después desde la app.
+
+Los archivos grandes **no** se versionan en git; cada desarrollador debe ejecutar el script al menos una vez.
 
 ### Build de producción
 
@@ -57,6 +60,19 @@ npm run tauri build
 
 El instalador (.dmg en macOS, etc.) se genera en `src-tauri/target/release/bundle/`.
 
+### Releases en GitHub
+
+Al pushear un tag semver (`v0.1.0`, `v1.2.3`, …), el workflow [`.github/workflows/release.yml`](.github/workflows/release.yml) compila la app con [tauri-action](https://github.com/tauri-apps/tauri-action) para macOS (Apple Silicon), Linux y Windows, e crea un **release draft** en GitHub con los instaladores.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+El pipeline instala Piper, modelos por defecto y dependencias Python (igual que `setup-local-ai.sh`) antes del build, así quien descarga el release no necesita Rust ni wasm-pack.
+
+Requisitos en el repositorio: **Settings → Actions → General → Workflow permissions → Read and write permissions**.
+
 ## Uso
 
 1. **Abrir un PDF**: arrastra el archivo al visor o usa **Abrir PDF** en la pantalla inicial.
@@ -64,6 +80,27 @@ El instalador (.dmg en macOS, etc.) se genera en `src-tauri/target/release/bundl
 3. Pulsa **Play** cuando el indicador de preparación indique que el primer fragmento está listo.
 4. La narración avanza por página; al terminar una página puede continuar en la siguiente automáticamente.
 5. Opcional: activa **Subtítulos · [idioma opuesto]** para leer la traducción sincronizada con el audio.
+
+### Voces Piper
+
+El catálogo incluye (por defecto en `src-tauri/voice-catalog.json`):
+
+| Voz | Idioma | Modelo |
+|-----|--------|--------|
+| Sharvard | Español (España) | `es_ES-sharvard-medium` |
+| Daniela | Español (Argentina) | `es_AR-daniela-high` |
+| Lessac | Inglés (EE. UU.) | `en_US-lessac-medium` |
+| Amy | Inglés (EE. UU.) | `en_US-amy-medium` |
+| Ryan | Inglés (EE. UU.) | `en_US-ryan-medium` |
+
+**Abrir el gestor de voces:**
+
+- Botón con icono de voz en el **header derecho** (solo con un PDF abierto), a la derecha de los subtítulos.
+- En macOS: menú **Voces → Gestionar voces Piper…** (barra de menú del sistema; disponible también sin documento).
+
+En el diálogo puedes **descargar** modelos que falten, **preescuchar** una muestra y marcar la voz **activa** para cada idioma. La preferencia se guarda en el navegador (localStorage). Al cambiar de voz, el audio de la página actual se vuelve a preparar.
+
+Si la descarga falla al parchear el modelo, ejecuta `./scripts/setup-local-ai.sh` para instalar el entorno `piper-tts`.
 
 ### Controles en la interfaz
 
@@ -74,8 +111,9 @@ El instalador (.dmg en macOS, etc.) se genera en `src-tauri/target/release/bundl
 | **Página anterior / siguiente** | Centro del header | Navega sin reiniciar la preparación de audio |
 | **Play / Pausa** | Centro del header | Reproduce o pausa la narración |
 | Indicador circular | Junto al reproductor | Progreso de síntesis/alineación de la página actual |
+| **Voces Piper** | Header derecho (solo con PDF abierto) | Abre el catálogo: descargar, preescuchar y elegir voz activa por idioma |
 | Ajuste ancho / página | Icono junto al reproductor | Alterna entre ver el PDF a ancho completo o página entera |
-| **Idioma del audio** | Header derecho | Cambia voz y traducción (reprepara el audio) |
+| **Idioma del audio** | Header derecho | Cambia idioma de narración y traducción (reprepara el audio) |
 | **Subtítulos · ES/EN** | Header derecho | Muestra u oculta subtítulos en el idioma opuesto |
 | Icono basura | Junto al nombre del PDF | Cierra el documento y vuelve al inicio |
 | Miniaturas | Columna izquierda | Salta a una página (actualiza vista; la reproducción sigue su propia página hasta que navegas o das play) |
@@ -111,6 +149,7 @@ Los atajos no actúan mientras el foco está en un campo de texto o con modifica
 - **pdf-extract** — extracción de texto del PDF
 - **whatlang** — detección de idioma
 - **Piper** — síntesis de voz local (sidecar `bin/piper`)
+- **reqwest** — descarga de modelos desde Hugging Face desde la app
 - **piper-phonemize** + script Python — alineación fonema para sync
 - **Argos Translate** (venv Python) — traducción offline
 - Crate **`narration-sync`** — lógica de sincronización compartida Rust/WASM
@@ -126,9 +165,10 @@ Los atajos no actúan mientras el foco está en un campo de texto o con modifica
 simple-narrator/
 ├── src/                    # UI React (visor, reproductor, header)
 ├── src-tauri/              # Backend Tauri + binarios Piper + modelos
-│   ├── src/                # Comandos Rust (PDF, TTS, traducción)
+│   ├── src/                # Comandos Rust (PDF, TTS, traducción, voces)
+│   ├── voice-catalog.json  # Catálogo de voces (UI + descargas)
 │   ├── bin/                # Piper (generado por setup-local-ai.sh)
-│   └── models/piper/       # Modelos ONNX (generados por setup)
+│   └── models/piper/       # Modelos ONNX (setup o descarga desde la app)
 ├── crates/
 │   ├── narration-sync/     # Sync palabra-a-palabra (Rust)
 │   └── narration-sync-wasm/ # Bindings WASM para el frontend

@@ -7,6 +7,7 @@ import { DocumentHeaderCenter } from "./DocumentHeaderCenter";
 import { DocumentHeaderLoadBar } from "./DocumentHeaderLoadBar";
 import { DocumentHeaderSubtitleToggle } from "./DocumentHeaderSubtitleToggle";
 import { DocumentPageCounter } from "./DocumentPageCounter";
+import { VoiceCatalogButton } from "./VoiceCatalogButton";
 
 interface DocumentHeaderProps {
   document: OpenDocument | null;
@@ -25,6 +26,7 @@ interface DocumentHeaderProps {
   onPause: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
+  onOpenVoiceCatalog?: () => void;
 }
 
 export const DocumentHeader = memo(function DocumentHeader({
@@ -44,6 +46,7 @@ export const DocumentHeader = memo(function DocumentHeader({
   onPause,
   onPrevPage,
   onNextPage,
+  onOpenVoiceCatalog,
 }: DocumentHeaderProps) {
   const isBusy =
     status === "opening" || status === "preparing" || status === "playing";
@@ -101,6 +104,7 @@ export const DocumentHeader = memo(function DocumentHeader({
             onPause={onPause}
             onPrevPage={onPrevPage}
             onNextPage={onNextPage}
+            isPdfLoading={isPdfLoading}
           />
         ) : (
           <div className="hidden lg:block" aria-hidden="true" />
@@ -134,6 +138,10 @@ export const DocumentHeader = memo(function DocumentHeader({
             </div>
 
             <DocumentHeaderSubtitleToggle subtitleLang={subtitleLang} />
+
+            {onOpenVoiceCatalog ? (
+              <VoiceCatalogButton onOpen={onOpenVoiceCatalog} />
+            ) : null}
           </div>
         ) : (
           <div className="hidden lg:block" aria-hidden="true" />

@@ -1,9 +1,11 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { WindowTitleBar } from "@/components/layout/WindowTitleBar";
 import { SubtitleShortcuts } from "@/components/layout/SubtitleShortcuts";
 import { ViewerArea } from "@/components/layout/ViewerArea";
 import { ViewerLayout } from "@/components/layout/ViewerLayout";
 import { DocumentHeader } from "@/components/viewer/DocumentHeader";
+import { VoiceCatalogDialog } from "@/components/viewer/VoiceCatalogDialog";
 import { SubtitleOverlay } from "@/components/viewer/SubtitleOverlay";
 import { usePdfDragDrop } from "@/hooks/usePdfDragDrop";
 import { useSubtitlePanelWidth } from "@/hooks/useSubtitlePanelWidth";
@@ -11,6 +13,8 @@ import { initSubtitleVisibility } from "@/lib/subtitleVisibilityStore";
 import { usePodcastPlayer } from "@/hooks/usePodcastPlayer";
 
 export function AppShell() {
+  const [voiceCatalogOpen, setVoiceCatalogOpen] = useState(false);
+
   const {
     document,
     currentPage,
@@ -34,6 +38,7 @@ export function AppShell() {
     handleDocumentLoadError,
     listenLanguage,
     setListenLanguage,
+    handleVoicePreferenceChange,
     showOppositeSubtitlesRef,
     handleSubtitleVisibilityChange,
     closeDocument,
@@ -80,6 +85,20 @@ export function AppShell() {
     });
   }, [showOppositeSubtitlesRef, handleSubtitleVisibilityChange]);
 
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    void listen("open-voice-catalog", () => {
+      setVoiceCatalogOpen(true);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
   return (
       <div className="flex h-screen flex-col overflow-hidden bg-background">
         <WindowTitleBar />
@@ -101,6 +120,13 @@ export function AppShell() {
           pdfLoadingMessage={statusMessage}
           pdfLoadError={openError}
           onDismissPdfLoadError={dismissOpenError}
+          onOpenVoiceCatalog={() => setVoiceCatalogOpen(true)}
+        />
+
+        <VoiceCatalogDialog
+          open={voiceCatalogOpen}
+          onOpenChange={setVoiceCatalogOpen}
+          onVoicePreferenceChange={handleVoicePreferenceChange}
         />
 
         <SubtitleShortcuts

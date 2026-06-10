@@ -1,0 +1,123 @@
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            python3 \
+            python3-venv \
+            curl
+
+      - name: Install macOS dependencies
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install python3 curl
+
+      - name: Install Windows dependencies
+        if: matrix.platform == 'windows-latest'
+        run: |
+          choco install python --version=3.12.0 -y
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Prepare Piper and local AI (macOS / Linux)
+        if: matrix.platform != 'windows-latest'
+        run: ./scripts/setup-local-ai.sh
+
+      - name: Prepare Piper and local AI (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $piperVersion = '2023.11.14-2'
+          $phonemizeVersion = '2023.11.14-4'
+          $hfBase = 'https://huggingface.co/rhasspy/piper-voices/resolve/main'
+          $binDir = 'src-tauri/bin'
+          $modelsDir = 'src-tauri/models/piper'
+          New-Item -ItemType Directory -Force -Path $binDir, $modelsDir | Out-Null
+          $piperZip = "$env:RUNNER_TEMP/piper_windows_amd64.zip"
+          Invoke-WebRequest -Uri "https://github.com/rhasspy/piper/releases/download/$piperVersion/piper_windows_amd64.zip" -OutFile $piperZip
+          Expand-Archive -Path $piperZip -DestinationPath "$env:RUNNER_TEMP/piper" -Force
+          Copy-Item "$env:RUNNER_TEMP/piper/piper/piper.exe" "$binDir/piper.exe"
+          Copy-Item "$env:RUNNER_TEMP/piper/piper/piper.exe" "$binDir/piper-x86_64-pc-windows-msvc.exe"
+          $phonemizeZip = "$env:RUNNER_TEMP/piper-phonemize_windows_amd64.zip"
+          Invoke-WebRequest -Uri "https://github.com/rhasspy/piper-phonemize/releases/download/$phonemizeVersion/piper-phonemize_windows_amd64.zip" -OutFile $phonemizeZip
+          Expand-Archive -Path $phonemizeZip -DestinationPath "$env:RUNNER_TEMP/piper-phonemize" -Force
+          Copy-Item "$env:RUNNER_TEMP/piper-phonemize/piper-phonemize/bin/piper_phonemize.exe" "$binDir/piper_phonemize.exe" -ErrorAction SilentlyContinue
+          function Download-Model($relPath, $stem) {
+            Invoke-WebRequest -Uri "$hfBase/$relPath/$stem.onnx" -OutFile "$modelsDir/$stem.onnx"
+            Invoke-WebRequest -Uri "$hfBase/$relPath/$stem.onnx.json" -OutFile "$modelsDir/$stem.onnx.json"
+          }
+          Download-Model 'es/es_ES/sharvard/medium' 'es_ES-sharvard-medium'
+          Download-Model 'en/en_US/lessac/medium' 'en_US-lessac-medium'
+          python -m venv src-tauri/.venv-piper
+          src-tauri/.venv-piper/Scripts/pip install --upgrade pip piper-tts onnx onnxruntime
+          src-tauri/.venv-piper/Scripts/python scripts/patch_piper_models.py src-tauri/models/piper
+          python -m venv src-tauri/.venv-translate
+          src-tauri/.venv-translate/Scripts/pip install --upgrade pip argostranslate
+          src-tauri/.venv-translate/Scripts/argospm update
+          src-tauri/.venv-translate/Scripts/argospm install translate-en_es
+          src-tauri/.venv-translate/Scripts/argospm install translate-es_en
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: simple-narrator-v__VERSION__
+          releaseName: Simple Narrator v__VERSION__
+          releaseBody: |
+            Binarios de Simple Narrator v__VERSION__.
+
+            Incluyen Piper, modelos de voz ES/EN por defecto y traducción offline Argos.
+            En macOS Apple Silicon descarga el `.dmg`; en Linux el `.AppImage` o `.deb`; en Windows el `.msi` o `.exe`.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

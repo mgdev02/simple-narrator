@@ -87,3 +87,23 @@ export async function previewVoice(
 ): Promise<string> {
   return invoke<string>("preview_voice", { modelStem, text });
 }
+
+export interface VoiceInstallState {
+  modelStem: string;
+  installed: boolean;
+  patched: boolean;
+}
+
+export interface VoiceDownloadProgress {
+  modelStem: string;
+  phase: string;
+  percent: number;
+}
+
+export async function listVoiceStates(): Promise<VoiceInstallState[]> {
+  return invoke<VoiceInstallState[]>("list_voice_states_command");
+}
+
+export async function downloadVoice(modelStem: string): Promise<void> {
+  return invoke<void>("download_voice_command", { modelStem });
+}

@@ -2,6 +2,10 @@ fn main() {
     tauri_build::build();
 
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let voice_catalog = manifest_dir.join("voice-catalog.json");
+    if voice_catalog.is_file() {
+        println!("cargo:rerun-if-changed={}", voice_catalog.display());
+    }
     for rel in [
         "icons/icon.icns",
         "icons/icon.ico",
